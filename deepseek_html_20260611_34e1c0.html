@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Reino das Proporções - RPG com Defesa e Summons</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @import url('https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap');
+        body {
+            font-family: 'MedievalSharp', 'Georgia', serif;
+            background: linear-gradient(135deg, #1a0a00 0%, #2d1a0a 50%, #1a0a00 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        #game-container {
+            background: linear-gradient(180deg, #2a1a0a 0%, #1a0a00 100%);
+            border: 8px solid #8b6914;
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(255, 180, 0, 0.5);
+            width: 1100px;
+            max-width: 100%;
+            padding: 20px;
+            color: #e0d0b0;
+        }
+        h1 { text-align: center; font-size: 2.8em; color: #ffd700; text-shadow: 0 0 10px #ff8c00, 3px 3px 0 #000; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #c0a060; font-size: 1.1em; margin-bottom: 20px; }
+        #map-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+        .map-cell {
+            background: linear-gradient(135deg, #3a2a1a, #2a1a0a);
+            border: 3px solid #6b4a1a; border-radius: 15px; padding: 12px;
+            text-align: center; cursor: pointer; transition: all 0.3s;
+            position: relative; min-height: 80px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .map-cell:hover:not(.disabled) { background: linear-gradient(135deg, #5a3a2a, #3a2a1a); border-color: #ffd700; transform: scale(1.08); }
+        .map-cell.disabled { opacity: 0.4; cursor: not-allowed; background: #1a1008; }
+        .cell-emoji { font-size: 2.2em; display: block; }
+        .cell-number { font-size: 0.9em; color: #ffd700; font-weight: bold; }
+        .cell-name { font-size: 0.75em; color: #c0a060; margin-top: 3px; }
+        .player-marker { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 2em; animation: bounce 0.8s infinite; z-index: 3; }
+        @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-15px); } }
+        #party-panel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        .hero-card {
+            background: linear-gradient(135deg, #3a2a1a, #2a1a0a); border: 2px solid #8b6914;
+            border-radius: 10px; padding: 12px; text-align: center; transition: all 0.3s;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .hero-card:hover { border-color: #ffd700; transform: translateY(-5px); }
+        .hero-card h3 { color: #ffd700; font-size: 1.1em; margin: 8px 0 5px 0; }
+        .hero-icon { width: 100px; height: 100px; object-fit: cover; border-radius: 50%; display: block; margin: 0 auto; border: 3px solid #ffd700; box-shadow: 0 0 15px rgba(255,215,0,0.5); }
+        .hero-stats { font-size: 0.8em; color: #c0a060; line-height: 1.4; margin-top: 8px; width: 100%; }
+        #battle-area { background: linear-gradient(180deg, #1a0a00 0%, #0d0500 100%); border: 3px solid #8b6914; border-radius: 15px; padding: 20px; margin-bottom: 15px; display: none; position: relative; }
+        #battle-area.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .battle-field { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 20px; min-height: 250px; }
+        .heroes-side { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .heroes-row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .hero-battle-sprite { text-align: center; animation: heroIdle 2s infinite; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.3s; }
+        .hero-battle-sprite:hover { transform: scale(1.1); }
+        .hero-battle-sprite.active { animation: heroAttack 0.5s; border: 2px solid #ffd700; border-radius: 10px; padding: 5px; }
+        @keyframes heroAttack { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(20px); } }
+        @keyframes heroIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .hero-battle-img { width: 80px; height: 80px; object-fit: contain; filter: drop-shadow(0 0 15px rgba(100,200,255,0.6)); border-radius: 10px; }
+        .hero-battle-name { color: #ffd700; font-size: 0.75em; margin-top: 5px; }
+        .vs-area { font-size: 3em; color: #ff4444; animation: pulse 1s infinite; flex: 0.5; text-align: center; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+        .enemy-side { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
+        .enemy-battle-sprite { text-align: center; animation: enemyFloat 3s infinite; }
+        @keyframes enemyFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .enemy-battle-img { width: 140px; height: 140px; object-fit: contain; filter: drop-shadow(0 0 20px rgba(255,50,50,0.8)); }
+        .enemy-battle-name { color: #ff4444; font-size: 1.2em; font-weight: bold; margin-top: 5px; }
+        .enemy-hp-bar-container { width: 200px; height: 20px; background: #1a0000; border: 2px solid #ff0000; border-radius: 10px; margin-top: 10px; overflow: hidden; }
+        .enemy-hp-bar { height: 100%; background: linear-gradient(90deg, #ff0000, #ff4444); transition: width 0.5s; }
+        .enemy-hp-text { color: #ff6666; font-size: 0.85em; margin-top: 3px; }
+        #enemy-info { text-align: center; margin-bottom: 15px; }
+        #enemy-info h3 { color: #ff4444; font-size: 1.5em; }
+        .enemy-stats { color: #ff9999; font-size: 0.9em; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 8px; display: inline-block; }
+        #math-problem { background: #1a1008; border: 2px solid #ffd700; border-radius: 10px; padding: 20px; margin: 15px 0; text-align: center; }
+        #math-problem h4 { color: #ffd700; font-size: 1.3em; margin-bottom: 12px; }
+        #problem-text { color: #e0d0b0; font-size: 1.1em; margin-bottom: 18px; }
+        #answer-input { background: #0d0500; border: 2px solid #ffd700; color: #ffd700; padding: 12px; font-size: 1.3em; width: 180px; text-align: center; border-radius: 8px; margin: 0 8px; font-family: 'MedievalSharp', serif; }
+        #submit-answer, #skip-battle { background: linear-gradient(135deg, #8b6914, #5a3a0a); color: #ffd700; border: 2px solid #ffd700; padding: 12px 25px; font-size: 1.1em; cursor: pointer; border-radius: 8px; margin: 5px; font-family: 'MedievalSharp', serif; transition: all 0.3s; }
+        #submit-answer:hover, #skip-battle:hover { background: linear-gradient(135deg, #ab8934, #8b6914); transform: scale(1.05); }
+        #global-stats { text-align: center; color: #c0a060; font-size: 1.1em; margin-bottom: 15px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; }
+        #message-log { background: #0d0500; border: 2px solid #8b6914; border-radius: 10px; padding: 12px; margin-top: 15px; max-height: 180px; overflow-y: auto; color: #c0a060; font-size: 0.9em; }
+        .log-entry { padding: 6px 0; border-bottom: 1px solid #2a1a0a; }
+        .success { color: #4caf50; } .error { color: #f44336; } .info { color: #2196f3; } .gold { color: #ffd700; }
+        .attack-effect { position: absolute; font-size: 2em; pointer-events: none; animation: attackFly 0.5s forwards; z-index: 10; }
+        @keyframes attackFly { 0% { opacity: 1; transform: translate(0, 0) scale(0.5); } 100% { opacity: 0; transform: translate(-100px, -50px) scale(1.5); } }
+        #summoned-monster-display { position: absolute; bottom: 10px; right: 10px; text-align: center; z-index: 5; }
+
+        /* BARRA DE ATAQUE */
+        #attack-bar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1700; justify-content: center; align-items: center; }
+        #attack-bar-overlay.active { display: flex; }
+        #attack-bar-container { width: 400px; height: 60px; background: #1a1008; border: 3px solid #ffd700; border-radius: 30px; position: relative; overflow: hidden; box-shadow: 0 0 30px rgba(255, 215, 0, 0.5); }
+        #attack-bar-fill { width: 100%; height: 100%; position: relative; background: linear-gradient(90deg, #ff4444, #ffd700, #4caf50, #ffd700, #ff4444); animation: attackBarMove 2s linear infinite; }
+        @keyframes attackBarMove { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        #attack-bar-marker { position: absolute; left: 50%; top: -10px; transform: translateX(-50%); width: 4px; height: 80px; background: #fff; box-shadow: 0 0 10px #fff, 0 0 20px #fff; z-index: 2; }
+        #attack-bar-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); border: 2px solid #fff; z-index: 1; }
+        #attack-bar-text { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); color: #ffd700; font-size: 1.2em; text-align: center; }
+
+        /* BESTIÁRIO */
+        #bestiary-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 1600; justify-content: center; align-items: center; flex-direction: column; }
+        #bestiary-overlay.active { display: flex; animation: overlayFadeIn 0.5s ease-out; }
+        .bestiary-image { max-width: 80%; max-height: 75%; object-fit: contain; border: 5px solid #ffd700; border-radius: 20px; box-shadow: 0 0 60px rgba(255, 180, 0, 0.8), 0 0 120px rgba(255, 140, 0, 0.4); animation: bestiaryPulse 3s infinite; }
+        @keyframes bestiaryPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+        .bestiary-next-btn { position: absolute; bottom: 30px; right: 30px; background: linear-gradient(135deg, #8b6914, #5a3a0a); color: #ffd700; border: 3px solid #ffd700; padding: 16px 40px; font-size: 1.4em; cursor: pointer; border-radius: 40px; font-family: 'MedievalSharp', serif; transition: all 0.3s; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); box-shadow: 0 0 25px rgba(255, 180, 0, 0.4); z-index: 1700; }
+        .bestiary-next-btn:hover { background: linear-gradient(135deg, #ab8934, #8b6914); transform: scale(1.08); box-shadow: 0 0 40px rgba(255, 200, 0, 0.7); }
+
+        /* SUMMONS */
+        #summons-panel { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 10px 0; }
+        .summon-card { background: linear-gradient(135deg, #1a1a2e, #0a0a1a); border: 2px solid #8b6914; border-radius: 10px; padding: 8px; cursor: pointer; transition: all 0.3s; text-align: center; width: 80px; position: relative; }
+        .summon-card:hover:not(.disabled) { border-color: #ffd700; transform: scale(1.1); box-shadow: 0 0 15px rgba(255,215,0,0.5); }
+        .summon-card.disabled { opacity: 0.4; cursor: not-allowed; }
+        .summon-img { width: 60px; height: 60px; object-fit: contain; border-radius: 50%; border: 2px solid #ffd700; }
+        .summon-name { color: #ffd700; font-size: 0.65em; margin-top: 3px; }
+        #summon-counter { color: #ffd700; font-size: 0.9em; text-align: center; margin: 5px 0; }
+
+        /* CUTSCENE DE INVOCAÇÃO */
+        #summon-cutscene-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1900; justify-content: center; align-items: center; }
+        #summon-cutscene-overlay.active { display: flex; }
+        #summon-cutscene-image { max-width: 80%; max-height: 80%; border: 5px solid #ffd700; border-radius: 20px; box-shadow: 0 0 100px rgba(255, 180, 0, 0.8); animation: summonRiseAndFade 1.5s ease-out forwards; }
+        @keyframes summonRiseAndFade { 0% { opacity: 0; transform: translateY(100vh) scale(0.3); } 30% { opacity: 1; transform: translateY(-10vh) scale(1.1); } 70% { opacity: 1; transform: translateY(-20vh) scale(1); } 100% { opacity: 0; transform: translateY(-50vh) scale(0.5); } }
+
+        /* CUTSCENE INICIAL */
+        #cutscene-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; justify-content: center; align-items: center; flex-direction: column; }
+        #cutscene-overlay.active { display: flex; }
+        #cutscene-video { max-width: 90%; max-height: 80%; border: 4px solid #ffd700; border-radius: 15px; box-shadow: 0 0 50px rgba(255, 180, 0, 0.7); }
+        .skip-cutscene-btn { background: rgba(0,0,0,0.7); color: #ffd700; border: 2px solid #ffd700; padding: 10px 30px; font-size: 1.1em; cursor: pointer; border-radius: 30px; font-family: 'MedievalSharp', serif; margin-top: 20px; transition: all 0.3s; }
+        .skip-cutscene-btn:hover { background: rgba(139, 105, 20, 0.8); box-shadow: 0 0 20px rgba(255, 200, 0, 0.6); }
+        #start-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+        #start-screen h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .start-btn { background: linear-gradient(135deg, #8b6914, #5a3a0a); color: #ffd700; border: 3px solid #ffd700; padding: 18px 50px; font-size: 1.7em; cursor: pointer; border-radius: 50px; font-family: 'MedievalSharp', serif; transition: all 0.3s; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); box-shadow: 0 0 30px rgba(255, 180, 0, 0.4); animation: pulse 2s infinite; margin-top: 20px; }
+        .start-btn:hover { background: linear-gradient(135deg, #ab8934, #8b6914); transform: scale(1.1); box-shadow: 0 0 50px rgba(255, 200, 0, 0.8); }
+        .tutorial-btn { background: linear-gradient(135deg, #3a4a2a, #2a3a1a); color: #b0ffb0; border: 3px solid #7fff00; padding: 14px 40px; font-size: 1.3em; cursor: pointer; border-radius: 40px; font-family: 'MedievalSharp', serif; transition: all 0.3s; box-shadow: 0 0 20px rgba(180, 255, 0, 0.4); margin-top: 15px; }
+        .tutorial-btn:hover { background: linear-gradient(135deg, #5a6a3a, #4a5a2a); transform: scale(1.05); box-shadow: 0 0 30px rgba(200, 255, 0, 0.7); }
+        .heroes-preview { display: flex; gap: 25px; justify-content: center; margin: 20px 0; flex-wrap: wrap; }
+        .hero-preview-card { text-align: center; animation: float 3s infinite; }
+        .hero-preview-card:nth-child(2) { animation-delay: 0.5s; } .hero-preview-card:nth-child(3) { animation-delay: 1s; } .hero-preview-card:nth-child(4) { animation-delay: 1.5s; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        .hero-preview-img { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+        .hero-preview-name { color: #ffd700; margin-top: 8px; font-size: 0.9em; }
+        #game-content { display: none; }
+        #game-content.active { display: block; }
+        .start-image { width: 100%; max-width: 600px; border-radius: 20px; border: 4px solid #ffd700; box-shadow: 0 0 40px rgba(255, 180, 0, 0.6); margin-bottom: 20px; }
+        #tutorial-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.92); z-index: 1500; justify-content: center; align-items: center; }
+        #tutorial-overlay.active { display: flex; }
+        .tutorial-image { max-width: 90%; max-height: 80%; border: 4px solid #ffd700; border-radius: 20px; box-shadow: 0 0 60px rgba(255, 180, 0, 0.8); }
+        .tutorial-bottom-left-buttons { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 15px; z-index: 1600; }
+        #victory-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
+        #victory-overlay.active { display: flex; animation: overlayFadeIn 0.8s ease-out; }
+        @keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .victory-screen { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px; animation: screenSlideIn 0.6s ease-out; }
+        .victory-screen.active { display: flex; }
+        @keyframes screenSlideIn { from { opacity: 0; transform: scale(0.8) translateY(30px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .victory-image-large { width: 700px; height: 580px; object-fit: cover; border-radius: 20px; border: 4px solid #ffd700; box-shadow: 0 0 60px rgba(255, 140, 0, 0.9), 0 0 120px rgba(255, 69, 0, 0.5); margin-bottom: 25px; }
+        .victory-title-large { font-size: 3em; color: #ffd700; text-shadow: 0 0 30px #ff8c00, 0 0 60px #ff4500, 4px 4px 0 #000; margin-bottom: 10px; }
+        .victory-text-large { font-size: 1.5em; color: #e0d0b0; text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); margin-bottom: 30px; max-width: 600px; }
+        .victory-btn { background: linear-gradient(135deg, #8b6914, #5a3a0a); color: #ffd700; border: 3px solid #ffd700; padding: 16px 40px; font-size: 1.4em; cursor: pointer; border-radius: 40px; font-family: 'MedievalSharp', serif; transition: all 0.3s; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); box-shadow: 0 0 25px rgba(255, 180, 0, 0.4); }
+        .victory-btn:hover { background: linear-gradient(135deg, #ab8934, #8b6914); transform: scale(1.08); box-shadow: 0 0 40px rgba(255, 200, 0, 0.7); }
+        #credits-screen { text-align: center; padding: 40px; }
+        #credits-screen h2 { font-size: 3em; color: #ffd700; text-shadow: 0 0 20px #ff8c00; margin-bottom: 30px; }
+        .credits-content { color: #e0d0b0; font-size: 1.2em; line-height: 2; margin-bottom: 30px; }
+        .credits-content span { color: #ffd700; font-weight: bold; }
+        .credits-divider { width: 200px; height: 3px; background: #ffd700; margin: 20px auto; box-shadow: 0 0 10px #ff8c00; }
+        #music-selector { position: fixed; top: 80px; right: 20px; z-index: 999; background: linear-gradient(135deg, #2a1a0a, #1a0a00); border: 2px solid #ffd700; border-radius: 15px; padding: 15px; display: none; flex-direction: column; gap: 10px; box-shadow: 0 0 25px rgba(255, 180, 0, 0.5); }
+        #music-selector.active { display: flex; }
+        #music-selector h4 { color: #ffd700; text-align: center; margin-bottom: 5px; font-size: 1em; }
+        .music-option { background: linear-gradient(135deg, #3a2a1a, #2a1a0a); color: #c0a060; border: 2px solid #8b6914; padding: 10px 20px; font-size: 0.9em; cursor: pointer; border-radius: 8px; font-family: 'MedievalSharp', serif; transition: all 0.3s; text-align: left; }
+        .music-option:hover { border-color: #ffd700; color: #ffd700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
+        .music-option.selected { border-color: #ffd700; color: #ffd700; background: #5a3a0a; box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
+        .music-control-btn { position: fixed; top: 20px; right: 20px; z-index: 999; background: linear-gradient(135deg, #3a2a1a, #2a1a0a); color: #ffd700; border: 2px solid #ffd700; font-size: 1.5em; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); font-family: 'MedievalSharp', serif; }
+        .music-control-btn:hover { background: linear-gradient(135deg, #5a3a2a, #3a2a1a); transform: scale(1.1); box-shadow: 0 0 25px rgba(255, 215, 0, 0.7); }
+        .music-control-btn.muted { opacity: 0.6; border-color: #666; color: #666; }
+        #music-toggle-btn { top: 20px; right: 20px; }
+        #music-select-btn { top: 20px; right: 80px; }
+
+        /* ARENA DE DEFESA */
+        #defense-arena-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 1800; justify-content: center; align-items: center; }
+        #defense-arena-overlay.active { display: flex; }
+        #defense-arena { width: 500px; height: 500px; background: #0a0500; border: 5px solid #ffd700; border-radius: 20px; position: relative; overflow: hidden; box-shadow: 0 0 80px rgba(0, 200, 0, 0.6); }
+        .defense-heart { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 3em; color: #00ff00; text-shadow: 0 0 20px #00ff00; z-index: 10; animation: heartPulse 0.8s infinite; }
+        @keyframes heartPulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.2); } }
+        .defense-shield { position: absolute; left: 50%; top: 50%; width: 110px; height: 110px; border: 8px solid #00ff00; border-radius: 50%; transform: translate(-50%, -50%); z-index: 9; pointer-events: none; transition: all 0.05s; box-shadow: 0 0 25px rgba(0, 255, 0, 0.8); clip-path: polygon(50% 50%, 100% 50%, 100% 50%, 50% 50%); }
+        .defense-shield.direction-up { clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+        .defense-shield.direction-right { clip-path: polygon(100% 50%, 0% 0%, 0% 100%); }
+        .defense-shield.direction-down { clip-path: polygon(50% 100%, 0% 0%, 100% 0%); }
+        .defense-shield.direction-left { clip-path: polygon(0% 50%, 100% 0%, 100% 100%); }
+        .arrow { position: absolute; font-size: 2.8em; z-index: 8; pointer-events: none; filter: drop-shadow(0 0 10px currentColor); }
+        .arrow.up { color: #ff3333; } .arrow.down { color: #3333ff; } .arrow.left { color: #ffff00; } .arrow.right { color: #00ff00; }
+        .defense-hp-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 200px; height: 20px; background: #1a0000; border: 2px solid #ff0000; border-radius: 10px; overflow: hidden; }
+        .defense-hp-fill { height: 100%; background: linear-gradient(90deg, #ff0000, #ff4444); transition: width 0.3s; }
+        .defense-hp-text { color: #fff; font-size: 0.8em; margin-top: 5px; text-align: center; }
+        .defense-message { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #ffd700; font-size: 1.2em; }
+        .super-block-indicator { position: absolute; top: 40px; right: 10px; color: #fff; background: #333; padding: 5px 10px; border-radius: 20px; font-size: 0.8em; }
+
+        /* GAME OVER */
+        #game-over-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 3000; justify-content: center; align-items: center; flex-direction: column; }
+        #game-over-overlay.active { display: flex; animation: overlayFadeIn 0.5s ease-out; }
+        .game-over-image { max-width: 80%; max-height: 70%; object-fit: contain; border: 5px solid #ff0000; border-radius: 20px; box-shadow: 0 0 60px rgba(255, 0, 0, 0.8), 0 0 120px rgba(255, 0, 0, 0.4); animation: gameOverPulse 2s infinite; }
+        @keyframes gameOverPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+        .restart-btn { position: absolute; bottom: 30px; left: 30px; background: linear-gradient(135deg, #8b0000, #5a0000); color: #ffd700; border: 3px solid #ffd700; padding: 16px 40px; font-size: 1.4em; cursor: pointer; border-radius: 40px; font-family: 'MedievalSharp', serif; transition: all 0.3s; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); box-shadow: 0 0 25px rgba(255, 0, 0, 0.4); z-index: 3100; }
+        .restart-btn:hover { background: linear-gradient(135deg, #ab0000, #8b0000); transform: scale(1.08); box-shadow: 0 0 40px rgba(255, 0, 0, 0.7); }
+        @media (max-width: 800px) { 
+            #defense-arena { width: 90vw; height: 90vw; } 
+            .defense-heart { font-size: 2em; } 
+            .defense-shield { width: 70px; height: 70px; border-width: 5px; } 
+            .arrow { font-size: 1.8em; } 
+            .restart-btn { bottom: 20px; left: 20px; padding: 12px 30px; font-size: 1.1em; }
+            #attack-bar-container { width: 90vw; }
+            .bestiary-next-btn { bottom: 20px; right: 20px; padding: 12px 30px; font-size: 1.1em; }
+        }
+    </style>
+</head>
+<body>
+    <!-- BARRA DE ATAQUE OVERLAY -->
+    <div id="attack-bar-overlay">
+        <div id="attack-bar-container">
+            <div id="attack-bar-fill"></div>
+            <div id="attack-bar-center"></div>
+            <div id="attack-bar-marker"></div>
+            <div id="attack-bar-text">CLIQUE QUANDO A BARRA ESTIVER NO CENTRO!</div>
+        </div>
+    </div>
+
+    <!-- BESTIÁRIO OVERLAY -->
+    <div id="bestiary-overlay">
+        <img src="bestiario.jpeg" alt="Bestiário" class="bestiary-image" id="bestiary-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 600 400%22%3E%3Crect width=%22600%22 height=%22400%22 fill=%22%231a0a00%22/%3E%3Ctext x=%22300%22 y=%22180%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2240%22%3E📖 BESTIÁRIO%3C/text%3E%3Ctext x=%22300%22 y=%22250%22 text-anchor=%22middle%22 fill=%22%23c0a060%22 font-size=%2220%22%3EInimigo misterioso...%3C/text%3E%3C/svg%3E'">
+        <button class="bestiary-next-btn" onclick="closeBestiary()">PRÓXIMO ➡️</button>
+    </div>
+
+    <!-- CUTSCENE INICIAL -->
+    <div id="cutscene-overlay">
+        <video id="cutscene-video" playsinline>
+            <source src="cut.mp4" type="video/mp4">
+            Seu navegador não suporta vídeo.
+        </video>
+        <button class="skip-cutscene-btn" onclick="skipCutscene()">⏭️ Pular Cutscene ▶️</button>
+    </div>
+
+    <!-- TUTORIAL -->
+    <div id="tutorial-overlay">
+        <img src="tutorial.jpeg" alt="Tutorial" class="tutorial-image">
+        <div class="tutorial-bottom-left-buttons">
+            <button class="start-btn" style="font-size:1.2em; padding:12px 30px; animation:none;" onclick="fecharTutorialEIniciar()">⚔️ START</button>
+            <button class="tutorial-btn" style="font-size:1.2em; padding:12px 30px;" onclick="fecharTutorial()">📜 VOLTAR</button>
+        </div>
+    </div>
+
+    <!-- ARENA DE DEFESA -->
+    <div id="defense-arena-overlay">
+        <div id="defense-arena">
+            <div class="defense-hp-bar"><div class="defense-hp-fill" id="defense-hp-fill" style="width:100%;"></div></div>
+            <div class="defense-hp-text" id="defense-hp-text">❤️ 500/500</div>
+            <div class="defense-heart" id="defense-heart">❤️</div>
+            <div class="defense-shield" id="defense-shield"></div>
+            <div class="super-block-indicator" id="super-block-indicator">⚡ Super: 0/3</div>
+            <div class="defense-message" id="defense-message">Use ↑ ↓ ← → para girar o escudo!</div>
+        </div>
+    </div>
+
+    <!-- CUTSCENE DE INVOCAÇÃO -->
+    <div id="summon-cutscene-overlay">
+        <img id="summon-cutscene-image" src="" alt="Invocação">
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="game-over-overlay">
+        <img src="game_over.jpeg" alt="Game Over" class="game-over-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 600 400%22%3E%3Crect width=%22600%22 height=%22400%22 fill=%22%231a0000%22/%3E%3Ctext x=%22300%22 y=%22180%22 text-anchor=%22middle%22 fill=%22%23ff0000%22 font-size=%2260%22 font-weight=%22bold%22%3EGAME OVER%3C/text%3E%3C/svg%3E'">
+        <button class="restart-btn" onclick="restartGame()">🔄 REINICIAR</button>
+    </div>
+
+    <!-- MÚSICAS -->
+    <audio id="musica-atual" loop volume="0.3"></audio>
+    <audio id="musica-1" loop><source src="music.mpeg" type="audio/mpeg"></audio>
+    <audio id="musica-2" loop><source src="music2.mp3" type="audio/mpeg"></audio>
+    <audio id="musica-3" loop><source src="music3.mp3" type="audio/mpeg"></audio>
+    <audio id="musica-4" loop><source src="music4.mp3" type="audio/mpeg"></audio>
+
+    <button id="music-toggle-btn" class="music-control-btn" onclick="toggleMusic()">♪</button>
+    <button id="music-select-btn" class="music-control-btn" onclick="toggleMusicSelector()">🎵</button>
+
+    <div id="music-selector">
+        <h4>🎵 Escolha a Música:</h4>
+        <button class="music-option selected" onclick="changeMusic(1, this)">🎶 Música Épica 1</button>
+        <button class="music-option" onclick="changeMusic(2, this)">🎶 Música de Batalha 2</button>
+        <button class="music-option" onclick="changeMusic(3, this)">🎶 Música Sombria 3</button>
+        <button class="music-option" onclick="changeMusic(4, this)">🎶 Música Aventureira 4</button>
+    </div>
+
+    <div id="game-container">
+        <!-- TELA INICIAL -->
+        <div id="start-screen">
+            <h1>⚔️ Reino das Proporções</h1>
+            <p class="subtitle">Domine a Razão e a Proporção para Salvar o Reino!</p>
+            <img src="tela_inicio.jpeg" alt="Reino das Proporções" class="start-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 600 300%22%3E%3Crect width=%22600%22 height=%22300%22 fill=%22%233a2a1a%22/%3E%3Ctext x=%22300%22 y=%22160%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2240%22%3E🏰 Reino das Proporções%3C/text%3E%3C/svg%3E'">
+            <div class="heroes-preview">
+                <div class="hero-preview-card"><img src="knight.png" class="hero-preview-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22%3E%3Ccircle cx=%2240%22 cy=%2240%22 r=%2235%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2240%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2230%22%3E🛡️%3C/text%3E%3C/svg%3E'"><p class="hero-preview-name">Cavaleiro</p></div>
+                <div class="hero-preview-card"><img src="ninja.png" class="hero-preview-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22%3E%3Ccircle cx=%2240%22 cy=%2240%22 r=%2235%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2240%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2230%22%3E🥷%3C/text%3E%3C/svg%3E'"><p class="hero-preview-name">Ninja</p></div>
+                <div class="hero-preview-card"><img src="mage.png" class="hero-preview-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22%3E%3Ccircle cx=%2240%22 cy=%2240%22 r=%2235%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2240%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2230%22%3E🧙%3C/text%3E%3C/svg%3E'"><p class="hero-preview-name">Mago</p></div>
+                <div class="hero-preview-card"><img src="witch.png" class="hero-preview-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22%3E%3Ccircle cx=%2240%22 cy=%2240%22 r=%2235%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2240%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2230%22%3E🧙‍♀️%3C/text%3E%3C/svg%3E'"><p class="hero-preview-name">Bruxa</p></div>
+            </div>
+            <button class="start-btn" onclick="iniciarJornada()">⚔️ INICIAR JORNADA ⚔️</button>
+            <button class="tutorial-btn" onclick="abrirTutorial()">📜 TUTORIAL</button>
+        </div>
+
+        <!-- CONTEÚDO DO JOGO -->
+        <div id="game-content">
+            <h1>⚔️ Reino das Proporções</h1>
+            <p class="subtitle">Domine a Razão e a Proporção para Salvar o Reino!</p>
+            <div id="party-panel">
+                <div class="hero-card"><img src="knight.png" class="hero-icon" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2250%22 y=%2265%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2240%22%3E🛡️%3C/text%3E%3C/svg%3E'"><h3>Cavaleiro</h3><div class="hero-stats">⚔️ Ataque: <span id="hero1-atk">30</span><br>🛡️ Defesa: <span id="hero1-def">80</span><br>⭐ Golpe Proporcional</div></div>
+                <div class="hero-card"><img src="ninja.png" class="hero-icon" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2250%22 y=%2265%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2240%22%3E🥷%3C/text%3E%3C/svg%3E'"><h3>Ninja</h3><div class="hero-stats">⚔️ Ataque: <span id="hero2-atk">15</span><br>🦶 Velocidade: <span id="hero2-spd">100</span><br>⭐ Estocada Rápida</div></div>
+                <div class="hero-card"><img src="mage.png" class="hero-icon" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2250%22 y=%2265%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2240%22%3E🧙%3C/text%3E%3C/svg%3E'"><h3>Mago</h3><div class="hero-stats">⚔️ Ataque: <span id="hero3-atk">10</span><br>💎 Mana: <span id="hero3-mana">150</span><br>⭐ Bola de Mana</div></div>
+                <div class="hero-card"><img src="witch.png" class="hero-icon" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2250%22 y=%2265%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2240%22%3E🧙‍♀️%3C/text%3E%3C/svg%3E'"><h3>Bruxa</h3><div class="hero-stats">⚔️ Ataque: <span id="hero4-atk">15</span><br>💎 Mana: <span id="hero4-mana">100</span><br>⭐ Maldição Fracionada</div></div>
+            </div>
+            <div id="global-stats">❤️ Vida do Grupo: <span id="party-hp">500</span>/500 | ⭐ XP: <span id="party-xp">0</span>/30 | 🎯 Nível: <span id="party-level">1</span></div>
+            <div id="map-container"></div>
+            <div id="battle-area">
+                <div class="battle-field">
+                    <div class="heroes-side"><div class="heroes-row" id="battle-heroes"></div><div style="color:#ffd700; margin-top:10px;">⚔️ Clique no herói para atacar! ⚔️</div></div>
+                    <div class="vs-area">⚡VS⚡</div>
+                    <div class="enemy-side" id="battle-enemy-container">
+                        <div class="enemy-battle-sprite"><img id="enemy-battle-img" class="enemy-battle-img" src="" alt="Inimigo"></div>
+                        <div class="enemy-battle-name" id="enemy-battle-name">Inimigo</div>
+                        <div class="enemy-hp-bar-container"><div class="enemy-hp-bar" id="enemy-hp-bar" style="width:100%;"></div></div>
+                        <div class="enemy-hp-text" id="enemy-hp-text">❤️ 100/100</div>
+                    </div>
+                </div>
+                <div id="summon-counter">🎴 Summons disponíveis: <span id="summon-count">2</span>/2</div>
+                <div id="summons-panel"></div>
+                <div id="enemy-info"><h3 id="enemy-name">Inimigo</h3><div class="enemy-stats" id="enemy-stats"></div></div>
+                <div id="math-problem"><h4>🧮 Desafio Matemático</h4><p id="problem-text"></p><input type="text" id="answer-input" placeholder="Sua resposta aqui..."><button id="submit-answer" onclick="checkAnswer()">⚔️ ATACAR!</button><button id="skip-battle" onclick="skipBattle()">🏃 Fugir</button></div>
+            </div>
+            <div id="message-log"><p class="log-entry info">🗡️ Bem-vindo ao Reino das Proporções!</p><p class="log-entry info">📍 Clique na <b>Casa 1</b> do mapa para começar!</p></div>
+        </div>
+    </div>
+
+    <!-- VITÓRIA FINAL -->
+    <div id="victory-overlay">
+        <div id="victory-screen-1" class="victory-screen">
+            <h2 class="victory-title-large">🔥 O REI DAS TREVAS CAIU! 🔥</h2>
+            <img src="vilao_derrotado.jpg" alt="Vilão queimando" class="victory-image-large">
+            <p class="victory-text-large">👿 O Lorde das Trevas queima em chamas... Seu reinado de escuridão chega ao fim!</p>
+            <button class="victory-btn" onclick="showVictoryScreen2()">▶️ Ver a Vitória ▶️</button>
+        </div>
+        <div id="victory-screen-2" class="victory-screen">
+            <h2 class="victory-title-large">🏆 VITÓRIA! O REINO ESTÁ SALVO! 🏆</h2>
+            <img src="herois_vitoria.jpg" alt="Heróis comemorando" class="victory-image-large">
+            <p class="victory-text-large">⚔️ Os heróis observam o castelo ser destruído de longe... O Reino das Proporções está em paz!</p>
+            <button class="victory-btn" onclick="showCredits()">📜 Ver Créditos 📜</button>
+        </div>
+        <div id="victory-screen-3" class="victory-screen">
+            <div id="credits-screen">
+                <h2>📜 Créditos</h2>
+                <div class="credits-divider"></div>
+                <div class="credits-content">
+                    <p><span>🎮 Jogo:</span> Reino das Proporções</p>
+                    <p><span>📐 Conteúdo:</span> Razão e Proporção</p>
+                    <p><span>⚔️ Gênero:</span> RPG Educacional Matemático</p>
+                    <div class="credits-divider"></div>
+                    <p><span>👨‍💻 Desenvolvimento:</span> Marcelo Gouveia Morais</p>
+                    <p><span>🎨 Arte:</span> Marcelo Gouveia Morais</p>
+                    <p><span>🎵 Música:</span> Marcelo Gouveia Morais</p>
+                    <div class="credits-divider"></div>
+                    <p><span>📚 Agradecimentos:</span></p>
+                    <p>Todos os professores que inspiram</p>
+                    <p>o aprendizado através da diversão!</p>
+                    <div class="credits-divider"></div>
+                    <p style="color:#ffd700; font-size:1.3em;">🌟 Obrigado por jogar! 🌟</p>
+                </div>
+                <button class="victory-btn" onclick="closeVictoryCinematic()">🌄 Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // VARIÁVEIS DO JOGO
+        // ============================================================
+        let currentPosition = 0, partyHP = 500, maxPartyHP = 500, partyXP = 0, partyLevel = 1;
+        let currentEnemy = null, currentCellData = null, amuletUsed = false, battleActive = false, gameCompleted = false;
+        let currentBattleDamageBonus = 0;
+        let leviathanProtection = false;
+        let behemothActive = false;
+        let selectedHeroIndex = 0;
+        let summonsUsedCount = 0;
+        const maxSummonsPerBattle = 2;
+        let witchWeakenPermanent = 0;
+        let ninjaWeakenNext = false;
+        let attackBarActive = false;
+        let bossRevived = false;
+        let summonMonsterActive = false;
+        let bestiaryActive = false;
+        let pendingBattleCell = null;
+
+        // DEFESA
+        let defenseActive = false;
+        let defenseShieldAngle = 0;
+        let defenseArrows = [];
+        let defenseBlockedCount = 0;
+        let defenseMissCount = 0;
+        let defenseIntervalId = null;
+        let defenseDamagePerArrow = 10;
+
+        // SUMMONS
+        const summons = [
+            { id: 'ifrit', name: 'Ifrit', image: 'ifrit.png', desc: 'Causa o dobro de dano no próximo ataque', effect: 'doubleDamage', used: false },
+            { id: 'leviathan', name: 'Leviatã', image: 'leviathan.png', desc: 'Protege do próximo ataque inimigo', effect: 'protect', used: false },
+            { id: 'cyclope', name: 'Ciclope', image: 'cyclope.png', desc: 'Revela a resposta do desafio atual (uso único)', effect: 'revealAnswer', used: false },
+            { id: 'dragon', name: 'Filhote de Dragão', image: 'filhote_de_dragao.png', desc: '+20 de dano por resposta correta', effect: 'dragonBonus', used: false },
+            { id: 'behemoth', name: 'Behemoth', image: 'behemoth.png', desc: 'Reduz 3% do dano recebido por turno', effect: 'behemoth', used: false },
+            { id: 'atlas', name: 'Atlas', image: 'atlas.png', desc: 'Aumenta dano em 4% por turno', effect: 'atlas', used: false }
+        ];
+
+        const heroes = [
+            { id: 1, name: "Cavaleiro", battleImage: "knight.png", atk: 30, def: 80, special: "Golpe Proporcional", emoji: "🛡️", attackType: "sword" },
+            { id: 2, name: "Ninja", battleImage: "ninja.png", atk: 15, spd: 100, special: "Estocada Rápida", emoji: "🥷", attackType: "shuriken" },
+            { id: 3, name: "Mago", battleImage: "mage.png", atk: 10, mana: 150, special: "Bola de Mana", emoji: "🧙", attackType: "fireball" },
+            { id: 4, name: "Bruxa", battleImage: "witch.png", atk: 15, mana: 100, special: "Maldição Fracionada", emoji: "🧙‍♀️", attackType: "weaken" }
+        ];
+
+        const mapCells = [
+            { id: 1, name: "Floresta", emoji: "🎃", type: "battle", enemy: { name: "Abóbora maldita", emoji: "🎃", battleImage: "abo.png", hp: 90, maxHp: 90, def: 25, bestiaryImage: "2.2.jpeg" ,description: "🎃 2/3 de crítico!", problem: "Crítico em 2/3 dos ataques. Em 9 ataques, quantos críticos?", answer: "6", acceptAnswers: ["6"], xpReward: 25, damageToParty: 35, pattern: "2:3" } },
+            { id: 2, name: "Cripta", emoji: "🧟", type: "battle", enemy: { name: "Morto-Vivo", emoji: "🧟", battleImage: "zumbi.png", hp: 85, maxHp: 85, def: 18, bestiaryImage: "9.9.jpeg", description: "🧟 1/4 de reviver.", problem: "Revive em 1/4 das mortes. Morre 12 vezes, quantas revive?", answer: "3", acceptAnswers: ["3"], xpReward: 22, damageToParty: 30, pattern: "1:4" } },
+            { id: 3, name: "Pico Goblin", emoji: "👺", type: "battle", enemy: { name: "Goblin Veloz", emoji: "👺", battleImage: "1.png", hp: 70, maxHp: 70, def: 15, bestiaryImage: "4.4.jpeg", description: "👺 3/4 ataca primeiro.", problem: "Ataca primeiro em 3/4 das vezes. Em 12 turnos, quantas?", answer: "9", acceptAnswers: ["9"], xpReward: 20, damageToParty: 28, pattern: "3:4" } },
+            { id: 4, name: "Labirinto", emoji: "🐂", type: "battle", enemy: { name: "Minotauro", emoji: "🐂", battleImage: "2.png", hp: 120, maxHp: 120, def: 35,bestiaryImage: "1.1.jpeg", description: "🐂 Reduz 1/3 do dano.", problem: "Reduz 1/3 do dano. Ataque de 90, quanto recebe?", answer: "60", acceptAnswers: ["60"], xpReward: 35, damageToParty: 42, pattern: "1:3" } },
+            { id: 5, name: "Cemitério", emoji: "🪦", type: "battle", bossPower: "revive", enemy: { name: "Esqueleto Rei", emoji: "💀", battleImage: "3.png", hp: 80, maxHp: 80, def: 20,bestiaryImage: "6.6.jpeg", description: "💀 BOSS: Possui 2 vidas! Revive com 1/3 da vida e causa DOBRO de dano por erro.", problem: "Golpe de 60, bloqueia 1/2. Dano recebido?", answer: "30", acceptAnswers: ["30"], xpReward: 50, damageToParty: 30, pattern: "1:2", revived: false } },
+            { id: 6, name: "Pântano", emoji: "🐍", type: "battle", enemy: { name: "Cobra Gigante", emoji: "🐍", battleImage: "4.png", hp: 95, maxHp: 95, def: 22, bestiaryImage: "15.15.jpeg", description: "🐍 2/5 de envenenar.", problem: "Envenena em 2/5 dos ataques. Em 20 ataques, quantos?", answer: "8", acceptAnswers: ["8"], xpReward: 28, damageToParty: 32, pattern: "2:5" } },
+            { id: 7, name: "Caverna Gelo", emoji: "❄️", type: "battle", enemy: { name: "Elemental de Gelo", emoji: "❄️", battleImage: "5.png", hp: 110, maxHp: 110, def: 30,bestiaryImage: "5.5.jpeg", description: "❄️ Reduz 3/5 da velocidade.", problem: "Velocidade 50, reduz 3/5. Quanto resta?", answer: "20", acceptAnswers: ["20"], xpReward: 32, damageToParty: 38, pattern: "3:5" } },
+            { id: 8, name: "Fortaleza", emoji: "⚔️", type: "battle", enemy: { name: "Cavaleiro Negro", emoji: "⚔️", battleImage: "6.png", hp: 130, maxHp: 130, def: 40,bestiaryImage: "14.14.jpeg", description: "⚔️ Bloqueia 2/3.", problem: "Ataque 120, bloqueia 2/3. Dano recebido?", answer: "40", acceptAnswers: ["40"], xpReward: 40, damageToParty: 45, pattern: "2:3" } },
+            { id: 9, name: "Caverna Beholder", emoji: "👹", type: "battle", enemy: { name: "Beholder", emoji: "👹", battleImage: "7.png", hp: 75, maxHp: 75, def: 20,bestiaryImage: "8.8.jpeg", description: "👹 Prende 3/8.", problem: "Prende em 3/8 dos ataques. 24 ataques, quantas prisões?", answer: "9", acceptAnswers: ["9"], xpReward: 24, damageToParty: 30, pattern: "3:8" } },
+            { id: 10, name: "Caverna Golem", emoji: "⛰️", type: "battle", bossPower: "doubleAttack", enemy: { name: "Golem de Pedra", emoji: "🗿", battleImage: "8.png", hp: 200, maxHp: 200, def: 80,bestiaryImage: "Golem.2.jpeg", description: "🗿 BOSS: Ataca 2 vezes quando você erra!", problem: "(100 ÷ 80) × 20 = ?", answer: "25", acceptAnswers: ["25"], xpReward: 60, damageToParty: 40, pattern: "calc" } },
+            { id: 11, name: "Ninho Fênix", emoji: "🐦‍🔥", type: "battle", enemy: { name: "Fênix", emoji: "🐦‍🔥", battleImage: "9.png", hp: 100, maxHp: 100, def: 25,bestiaryImage: "7.7.jpeg", description: "🐦‍🔥 1/5 de reviver.", problem: "Revive em 1/5 das mortes. 15 mortes, quantas revive?", answer: "3", acceptAnswers: ["3"], xpReward: 45, damageToParty: 35, pattern: "1:5" } },
+            { id: 12, name: "Lago de Fogo", emoji: "🔥", type: "battle", enemy: { name: "Dragão Vermelho", emoji: "🔥", battleImage: "10.png", hp: 150, maxHp: 150, def: 40,bestiaryImage: "10.10.jpeg", description: "🔥 Regra de três.", problem: "10 mana = 30 dano. 45 mana = ?", answer: "135", acceptAnswers: ["135"], xpReward: 25, damageToParty: 35, pattern: "regra3" } },
+            { id: 13, name: "Pirâmide", emoji: "⚰️", type: "battle", enemy: { name: "Múmia", emoji: "⚰️", battleImage: "11.png", hp: 160, maxHp: 160, def: 45,bestiaryImage: "11.11.jpeg", description: "⚰️ Divide dano.", problem: "180 de dano dividido entre 3 cabeças. Quanto cada?", answer: "60", acceptAnswers: ["60"], xpReward: 38, damageToParty: 48, pattern: "div3" } },
+            { id: 14, name: "Torre Talos", emoji: "🏗️", type: "battle", enemy: { name: "Talos", emoji: "🤖", battleImage: "12.png", hp: 180, maxHp: 180, def: 60,bestiaryImage: "3.3.jpeg", description: "🤖 3 escudos.", problem: "120 de dano dividido entre 3 escudos. Dano por escudo?", answer: "40", acceptAnswers: ["40"], xpReward: 35, damageToParty: 45, pattern: "div3" } },
+            { id: 15, name: "Castelo das Trevas", emoji: "🌋", type: "battle", bossPower: "finalBoss", enemy: { name: "REI DAS TREVAS", emoji: "👿", battleImage: "13.png", hp: 250, maxHp: 250, def: 100,bestiaryImage: "12.12.jpeg", description: "👿 CHEFE FINAL! Revive com 1/3 da vida, ataca 2x por erro, e pode invocar monstros!", problem: "Escudo reduz 3/5 do dano. Ataque 250, dano que passa?", answer: "100", acceptAnswers: ["100"], xpReward: 100, damageToParty: 15, pattern: "3:5", revived: false } }
+        ];
+
+        // ============================================================
+        // FUNÇÕES PRINCIPAIS
+        // ============================================================
+        const cutsceneVideo = document.getElementById('cutscene-video');
+        const cutsceneOverlay = document.getElementById('cutscene-overlay');
+        
+        if (cutsceneVideo) {
+            cutsceneVideo.addEventListener('ended', () => {
+                cutsceneOverlay.classList.remove('active');
+                iniciarJogo();
+            });
+        }
+        
+        function skipCutscene() { 
+            cutsceneOverlay.classList.remove('active'); 
+            if (cutsceneVideo) { 
+                cutsceneVideo.pause(); 
+                cutsceneVideo.currentTime = 0; 
+                cutsceneVideo.removeAttribute('autoplay'); // Remove autoplay após pular
+            } 
+            iniciarJogo(); 
+        }
+        
+        function iniciarJornada() { 
+            cutsceneOverlay.classList.add('active'); 
+            if (cutsceneVideo) { 
+                cutsceneVideo.currentTime = 0; 
+                // Remove autoplay e usa play() manualmente
+                cutsceneVideo.removeAttribute('autoplay');
+                cutsceneVideo.play().catch(() => { 
+                    // Se o play falhar, tenta com muted primeiro (política de autoplay)
+                    cutsceneVideo.muted = true;
+                    cutsceneVideo.play().then(() => {
+                        // Após começar a tocar, desmuta
+                        setTimeout(() => {
+                            cutsceneVideo.muted = false;
+                        }, 100);
+                    }).catch(() => { 
+                        skipCutscene(); 
+                    }); 
+                }); 
+            } 
+        }
+        
+        function iniciarJogo() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-content').classList.add('active');
+            initMap(); initBattleHeroes(); updateMapDisplay();
+            addLog("🗡️ Reino das Proporções - A jornada começa!", "info");
+            addLog("📍 Clique na Casa 1 do mapa para iniciar!", "info");
+        }
+
+        const musicaAtual = document.getElementById('musica-atual');
+        let musicaLigada = true;
+        const musicasDisponiveis = {
+            1: document.getElementById('musica-1'),
+            2: document.getElementById('musica-2'),
+            3: document.getElementById('musica-3'),
+            4: document.getElementById('musica-4')
+        };
+        function toggleMusic() {
+            const btn = document.getElementById('music-toggle-btn');
+            musicaLigada = !musicaLigada;
+            if (musicaLigada) { if (musicaAtual) musicaAtual.play().catch(() => {}); btn.classList.remove('muted'); btn.innerHTML = '♪'; }
+            else { if (musicaAtual) musicaAtual.pause(); btn.classList.add('muted'); btn.innerHTML = '🔇'; }
+        }
+        function toggleMusicSelector() { document.getElementById('music-selector').classList.toggle('active'); }
+        function changeMusic(num, btnElement) {
+            const sourceMusica = musicasDisponiveis[num];
+            if (sourceMusica && musicaAtual) {
+                musicaAtual.innerHTML = '';
+                const source = sourceMusica.querySelector('source');
+                if (source) { musicaAtual.innerHTML = `<source src="${source.src}" type="audio/mpeg">`; musicaAtual.load(); if (musicaLigada) musicaAtual.play().catch(() => {}); }
+            }
+            document.querySelectorAll('.music-option').forEach(b => b.classList.remove('selected'));
+            if (btnElement) btnElement.classList.add('selected');
+            document.getElementById('music-selector').classList.remove('active');
+        }
+        document.addEventListener('click', function iniciarMusica() {
+            if (musicaAtual && musicaLigada && musicaAtual.src === '') changeMusic(1, document.querySelector('.music-option'));
+            if (musicaAtual && musicaLigada) musicaAtual.play().catch(() => {});
+            document.removeEventListener('click', iniciarMusica);
+        }, { once: false });
+
+        function abrirTutorial() { document.getElementById('tutorial-overlay').classList.add('active'); }
+        function fecharTutorial() { document.getElementById('tutorial-overlay').classList.remove('active'); }
+        function fecharTutorialEIniciar() { document.getElementById('tutorial-overlay').classList.remove('active'); iniciarJornada(); }
+
+        function initMap() {
+            const mapContainer = document.getElementById("map-container");
+            if (!mapContainer) return;
+            mapContainer.innerHTML = '';
+            const castleCell = document.createElement("div");
+            castleCell.className = "map-cell"; castleCell.id = "cell-0";
+            castleCell.innerHTML = `<span class="cell-emoji">🏰</span><div class="cell-number">Castelo</div><div class="cell-name">Início</div>`;
+            castleCell.onclick = () => moveToCell(0);
+            mapContainer.appendChild(castleCell);
+            for (let i = 0; i < 15; i++) {
+                const cell = document.createElement("div");
+                cell.className = "map-cell disabled"; cell.id = `cell-${i + 1}`;
+                const cellData = mapCells[i];
+                cell.innerHTML = `<span class="cell-emoji">${cellData.emoji}</span><div class="cell-number">Casa ${i + 1}</div><div class="cell-name">${cellData.name}</div>`;
+                cell.onclick = () => moveToCell(i + 1);
+                mapContainer.appendChild(cell);
+            }
+            initSummonsPanel();
+        }
+
+        function initSummonsPanel() {
+            const panel = document.getElementById('summons-panel');
+            const counter = document.getElementById('summon-count');
+            if (!panel) return;
+            panel.innerHTML = '';
+            if (counter) counter.textContent = maxSummonsPerBattle - summonsUsedCount;
+            summons.forEach(summon => {
+                const card = document.createElement('div');
+                card.className = 'summon-card';
+                card.id = `summon-${summon.id}`;
+                card.innerHTML = `<img src="${summon.image}" class="summon-img" alt="${summon.name}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 60 60%22%3E%3Crect width=%2260%22 height=%2260%22 fill=%22%23333%22/%3E%3Ctext x=%2230%22 y=%2240%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2230%22%3E❓%3C/text%3E%3C/svg%3E'"><div class="summon-name">${summon.name}</div>`;
+                card.title = summon.desc;
+                card.onclick = () => useSummon(summon.id);
+                if (summonsUsedCount >= maxSummonsPerBattle || summon.used) card.classList.add('disabled');
+                panel.appendChild(card);
+            });
+        }
+
+        function useSummon(id) {
+            if (gameCompleted || defenseActive || !battleActive || attackBarActive) return;
+            if (summonsUsedCount >= maxSummonsPerBattle) { addLog(`❌ Máximo de ${maxSummonsPerBattle} summons usados!`, "error"); return; }
+            const summon = summons.find(s => s.id === id);
+            if (!summon || summon.used) return;
+            summon.used = true;
+            summonsUsedCount++;
+            updateSummonCounter();
+            const overlay = document.getElementById('summon-cutscene-overlay');
+            const img = document.getElementById('summon-cutscene-image');
+            img.src = summon.image;
+            overlay.classList.add('active');
+            setTimeout(() => { overlay.classList.remove('active'); img.src = ''; }, 1500);
+            setTimeout(() => {
+                switch (summon.effect) {
+                    case 'doubleDamage': currentBattleDamageBonus = 50; addLog(`🔥 Ifrit! Próximo ataque com DOBRO de dano!`, "gold"); break;
+                    case 'protect': leviathanProtection = true; addLog(`🛡️ Leviatã! Protegido do próximo ataque!`, "gold"); break;
+                    case 'revealAnswer': if (currentEnemy) { document.getElementById('problem-text').textContent += ` (Resposta: ${currentEnemy.answer})`; addLog(`👁️ Ciclope revelou a resposta!`, "gold"); } break;
+                    case 'dragonBonus': currentBattleDamageBonus += 20; addLog(`🐉 Filhote de Dragão! +20 de dano!`, "gold"); break;
+                    case 'behemoth': behemothActive = true; addLog(`🛡️ Behemoth! -3% de dano recebido!`, "gold"); break;
+                    case 'atlas': currentBattleDamageBonus += 4; addLog(`🌍 Atlas! +4% de dano!`, "gold"); break;
+                }
+                initSummonsPanel();
+            }, 1500);
+        }
+
+        function updateSummonCounter() {
+            const counter = document.getElementById('summon-count');
+            if (counter) counter.textContent = maxSummonsPerBattle - summonsUsedCount;
+        }
+
+        function initBattleHeroes() {
+            const container = document.getElementById("battle-heroes");
+            if (!container) return;
+            container.innerHTML = '';
+            heroes.forEach((hero, index) => {
+                const heroDiv = document.createElement("div");
+                heroDiv.className = "hero-battle-sprite";
+                heroDiv.id = `hero-battle-${index}`;
+                heroDiv.innerHTML = `<img src="${hero.battleImage}" class="hero-battle-img" alt="${hero.name}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22%3E%3Ccircle cx=%2240%22 cy=%2240%22 r=%2235%22 fill=%22%233a2a1a%22 stroke=%22%23ffd700%22 stroke-width=%222%22/%3E%3Ctext x=%2240%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23ffd700%22 font-size=%2230%22%3E${hero.emoji}%3C/text%3E%3C/svg%3E'"><div class="hero-battle-name">${hero.name}</div>`;
+                heroDiv.onclick = () => selectHero(index);
+                container.appendChild(heroDiv);
+            });
+            selectHero(0);
+        }
+
+        function selectHero(index) {
+            if (gameCompleted || defenseActive || !battleActive || attackBarActive) return;
+            selectedHeroIndex = index;
+            document.querySelectorAll('.hero-battle-sprite').forEach((el, i) => {
+                if (i === index) el.classList.add('active');
+                else el.classList.remove('active');
+            });
+            const hero = heroes[index];
+            addLog(`🎯 ${hero.emoji} ${hero.name} selecionado!`, "info");
+        }
+
+        function moveToCell(cellId) {
+            if (gameCompleted || defenseActive || bestiaryActive) return;
+            if (cellId !== currentPosition + 1 && cellId !== currentPosition) { addLog("❌ Avance uma casa por vez!", "error"); return; }
+            if (cellId === currentPosition) { addLog("📍 Você já está nesta casa.", "info"); return; }
+            
+            currentPosition = cellId; 
+            updateMapDisplay();
+            
+            if (cellId === 0) { 
+                addLog("🏰 De volta ao castelo...", "info"); 
+                return; 
+            }
+            
+            const cellData = mapCells[cellId - 1]; 
+            currentCellData = cellData;
+            
+            // Mostrar bestiário antes de TODAS as batalhas
+            if (cellData.type === "battle") {
+                showBestiary(cellData);
+            }
+        }
+
+        function showBestiary(cellData) {
+            bestiaryActive = true;
+            pendingBattleCell = cellData;
+            
+            // Usar imagem específica do inimigo se disponível
+            const bestiaryImg = document.getElementById('bestiary-img');
+            if (cellData.enemy.bestiaryImage) {
+                bestiaryImg.src = cellData.enemy.bestiaryImage;
+            } else {
+                bestiaryImg.src = 'bestiario.jpeg'; // fallback
+            }
+            
+            document.getElementById('bestiary-overlay').classList.add('active');
+            addLog(`📖 Bestiário: ${cellData.enemy.emoji} ${cellData.enemy.name}`, "info");
+            addLog("👀 Estude o inimigo antes da batalha!", "info");
+        }
+
+        function closeBestiary() {
+            document.getElementById('bestiary-overlay').classList.remove('active');
+            bestiaryActive = false;
+            
+            if (pendingBattleCell) {
+                const cellData = pendingBattleCell;
+                pendingBattleCell = null;
+                
+                if (cellData.type === "battle") {
+                    startBattle(cellData);
+                }
+            }
+        }
+
+        function updateMapDisplay() {
+            const oldMarker = document.getElementById("player-marker");
+            if (oldMarker) oldMarker.remove();
+            for (let i = 0; i <= 15; i++) {
+                const cell = document.getElementById(`cell-${i}`);
+                if (cell) i <= currentPosition + 1 && !gameCompleted ? cell.classList.remove("disabled") : cell.classList.add("disabled");
+            }
+            const currentCell = document.getElementById(`cell-${currentPosition}`);
+            if (currentCell && currentPosition > 0) {
+                const marker = document.createElement("div");
+                marker.className = "player-marker"; marker.id = "player-marker"; marker.textContent = "⚔️";
+                currentCell.appendChild(marker);
+            }
+        }
+
+        function startBattle(cellData) {
+            battleActive = true;
+            const enemy = { ...cellData.enemy, hp: cellData.enemy.maxHp };
+            currentEnemy = enemy; currentCellData = cellData;
+            bossRevived = false;
+            summonMonsterActive = false;
+            document.getElementById("battle-area").classList.add("active");
+            document.getElementById("enemy-battle-img").src = enemy.battleImage;
+            document.getElementById("enemy-battle-name").textContent = enemy.name;
+            updateEnemyHP();
+            document.getElementById("enemy-name").textContent = enemy.emoji + " " + enemy.name;
+            document.getElementById("enemy-stats").innerHTML = `❤️ ${enemy.hp}/${enemy.maxHp} | 🛡️ Defesa: ${enemy.def}<br>📜 ${enemy.description}`;
+            document.getElementById("problem-text").textContent = enemy.problem;
+            document.getElementById("answer-input").value = "";
+            summons.forEach(s => s.used = false);
+            summonsUsedCount = 0;
+            witchWeakenPermanent = 0;
+            ninjaWeakenNext = false;
+            initSummonsPanel();
+            initBattleHeroes();
+            currentBattleDamageBonus = 0;
+            leviathanProtection = false;
+            behemothActive = false;
+            addLog(`⚔️ ${enemy.emoji} ${enemy.name} apareceu!`, "info");
+            addLog("🎯 Selecione um herói clicando nele, depois clique em ATACAR!", "info");
+            addLog(`🎴 Você pode usar até ${maxSummonsPerBattle} summons nesta batalha!`, "info");
+            
+            if (cellData.bossPower === "revive") {
+                addLog("💀 BOSS: Este inimigo possui 2 vidas! Ele reviverá com 1/3 da vida e causará DOBRO de dano!", "gold");
+            } else if (cellData.bossPower === "doubleAttack") {
+                addLog("🗿 BOSS: Este inimigo ataca 2 vezes quando você erra!", "gold");
+            } else if (cellData.bossPower === "finalBoss") {
+                addLog("👿 CHEFE FINAL: Revive com 1/3 da vida, ataca 2x por erro, e pode invocar monstros!", "gold");
+            }
+        }
+
+        function updateEnemyHP() {
+            if (!currentEnemy) return;
+            const hpPercent = (currentEnemy.hp / currentEnemy.maxHp) * 100;
+            document.getElementById("enemy-hp-bar").style.width = hpPercent + "%";
+            document.getElementById("enemy-hp-text").textContent = `❤️ ${currentEnemy.hp}/${currentEnemy.maxHp}`;
+        }
+
+        function startAttackBar(callback) {
+            const overlay = document.getElementById('attack-bar-overlay');
+            const fill = document.getElementById('attack-bar-fill');
+            overlay.classList.add('active');
+            attackBarActive = true;
+            fill.style.animation = 'none';
+            fill.offsetHeight;
+            fill.style.animation = 'attackBarMove 2s linear infinite';
+            const handleClick = () => {
+                if (!attackBarActive) return;
+                const container = document.getElementById('attack-bar-container');
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const fillRect = fill.getBoundingClientRect();
+                const barCenterX = fillRect.left + fillRect.width / 2;
+                const distance = Math.abs(barCenterX - centerX);
+                const maxDistance = rect.width / 2;
+                const accuracy = Math.max(0, 1 - (distance / maxDistance));
+                const isCritical = accuracy > 0.8;
+                attackBarActive = false;
+                overlay.classList.remove('active');
+                document.removeEventListener('click', handleClick);
+                callback(isCritical, accuracy);
+            };
+            document.addEventListener('click', handleClick);
+        }
+
+        function checkAnswer() {
+            if (gameCompleted || defenseActive || attackBarActive) return;
+            const answer = document.getElementById("answer-input").value.trim().toLowerCase();
+            if (battleActive && currentEnemy) {
+                if (currentEnemy.acceptAnswers.includes(answer)) {
+                    startAttackBar((isCritical, accuracy) => {
+                        const hero = heroes[selectedHeroIndex];
+                        let damage = calculateHeroDamage(hero, isCritical);
+                        if (witchWeakenPermanent > 0) {
+                            const weakenDamage = Math.floor(damage * witchWeakenPermanent);
+                            damage += weakenDamage;
+                            addLog(`🧙‍♀️ Maldição da Bruxa! +${weakenDamage} dano!`, "gold");
+                        }
+                        if (ninjaWeakenNext) {
+                            const ninjaBonus = Math.floor(damage * 0.05);
+                            damage += ninjaBonus;
+                            addLog(`🥷 Bônus do Ninja! +${ninjaBonus} dano!`, "gold");
+                            ninjaWeakenNext = false;
+                        }
+                        
+                        if (summonMonsterActive) {
+                            const monster = currentEnemy.summonedMonster;
+                            monster.hp -= damage;
+                            addLog(`💥 ${hero.emoji} ${hero.name} atacou o monstro invocado! ${damage} de dano!`, "success");
+                            if (monster.hp <= 0) {
+                                addLog(`✅ Monstro invocado derrotado!`, "success");
+                                summonMonsterActive = false;
+                                currentEnemy.summonedMonster = null;
+                            }
+                            updateMonsterDisplay();
+                        } else {
+                            currentEnemy.hp -= damage;
+                            updateEnemyHP();
+                            showHeroAttackEffect(hero);
+                            
+                            if (currentEnemy.hp <= 0) {
+                                if (currentCellData.bossPower === "revive" && !currentEnemy.revived) {
+                                    currentEnemy.revived = true;
+                                    currentEnemy.hp = Math.floor(currentEnemy.maxHp / 3);
+                                    currentEnemy.damageToParty = currentEnemy.damageToParty * 2;
+                                    updateEnemyHP();
+                                    addLog(`💀 O ${currentEnemy.name} REVIVEU com 1/3 da vida e agora causa DOBRO de dano!`, "error");
+                                    document.getElementById("enemy-stats").innerHTML = `❤️ ${currentEnemy.hp}/${currentEnemy.maxHp} | 🛡️ Defesa: ${currentEnemy.def}<br>📜 REVIVIDO! Dano dobrado!`;
+                                } else if (currentCellData.bossPower === "finalBoss" && !currentEnemy.revived) {
+                                    currentEnemy.revived = true;
+                                    currentEnemy.hp = Math.floor(currentEnemy.maxHp / 3);
+                                    updateEnemyHP();
+                                    addLog(`👿 O REI DAS TREVAS REVIVEU com 1/3 da vida!`, "error");
+                                    document.getElementById("enemy-stats").innerHTML = `❤️ ${currentEnemy.hp}/${currentEnemy.maxHp} | 🛡️ Defesa: ${currentEnemy.def}<br>📜 REVIVIDO! Pode invocar monstros!`;
+                                } else {
+                                    addLog(`✅ VITÓRIA! +${currentEnemy.xpReward} XP`, "success");
+                                    addXP(currentEnemy.xpReward);
+                                    const defeatedBoss = (currentCellData.id === 15);
+                                    endBattle();
+                                    if (defeatedBoss) triggerFinalVictory();
+                                }
+                            } else {
+                                addLog(`${hero.emoji} ${hero.name} causou ${damage} de dano!`, "success");
+                                applyEnemyAttack();
+                            }
+                        }
+                        selectedHeroIndex = (selectedHeroIndex + 1) % heroes.length;
+                        selectHero(selectedHeroIndex);
+                    });
+                } else {
+                    if (!amuletUsed) { 
+                        amuletUsed = true; 
+                        addLog("📿 Amuleto perdoou o erro!", "gold"); 
+                    } else {
+                        if (currentCellData.bossPower === "doubleAttack" || currentCellData.bossPower === "finalBoss") {
+                            const extraDamage = Math.floor(currentEnemy.damageToParty * 1.5);
+                            addLog(`❌ Errado! O ${currentEnemy.name} ataca 2 vezes!`, "error");
+                            startDefenseMinigame(extraDamage * 2, currentEnemy.pattern);
+                            
+                            if (currentCellData.bossPower === "finalBoss" && !summonMonsterActive && Math.random() < 0.5) {
+                                summonRandomMonster();
+                            }
+                        } else if (currentCellData.bossPower === "revive" && currentEnemy.revived) {
+                            const extraDamage = Math.floor(currentEnemy.damageToParty * 1.5);
+                            addLog(`❌ Errado! Prepare-se para a defesa!`, "error");
+                            startDefenseMinigame(extraDamage, currentEnemy.pattern);
+                        } else {
+                            const extraDamage = Math.floor(currentEnemy.damageToParty * 1.5);
+                            addLog(`❌ Errado! Prepare-se para a defesa!`, "error");
+                            startDefenseMinigame(extraDamage, currentEnemy.pattern);
+                        }
+                    }
+                }
+            }
+            document.getElementById("answer-input").value = "";
+        }
+
+        function applyEnemyAttack() {
+            if (!leviathanProtection) {
+                let enemyDamage = currentEnemy.damageToParty;
+                if (behemothActive) enemyDamage = Math.floor(enemyDamage * 0.97);
+                partyHP -= enemyDamage; 
+                updatePartyHP();
+                addLog(`💥 Contra-ataque! -${enemyDamage} HP`, "error");
+                
+                if ((currentCellData.bossPower === "doubleAttack" || currentCellData.bossPower === "finalBoss") && Math.random() < 0.3) {
+                    const secondDamage = Math.floor(enemyDamage * 0.5);
+                    partyHP -= secondDamage;
+                    updatePartyHP();
+                    addLog(`💥 Segundo ataque! -${secondDamage} HP`, "error");
+                }
+            } else {
+                leviathanProtection = false;
+                addLog("🛡️ Leviatã bloqueou o contra-ataque!", "gold");
+            }
+            checkGameOver();
+        }
+
+        function summonRandomMonster() {
+            const monsters = [
+                { name: "Morcego Sombrio", emoji: "🦇", image: "morcego.png", hp: 30, maxHp: 30 },
+                { name: "Lobo Demoníaco", emoji: "🐺", image: "lobo.png", hp: 35, maxHp: 35 },
+                { name: "Serpente Negra", emoji: "🐍", image: "serpente.png", hp: 25, maxHp: 25 },
+                { name: "Espectro", emoji: "👻", image: "espectro.png", hp: 28, maxHp: 28 }
+            ];
+            
+            const monster = monsters[Math.floor(Math.random() * monsters.length)];
+            currentEnemy.summonedMonster = monster;
+            summonMonsterActive = true;
+            addLog(`👿 O Rei das Trevas invocou um ${monster.name}!`, "error");
+            updateMonsterDisplay();
+        }
+
+        function updateMonsterDisplay() {
+            if (summonMonsterActive && currentEnemy.summonedMonster) {
+                const monster = currentEnemy.summonedMonster;
+                const monsterDiv = document.getElementById("summoned-monster-display");
+                if (!monsterDiv) {
+                    const container = document.getElementById("battle-enemy-container");
+                    const div = document.createElement("div");
+                    div.id = "summoned-monster-display";
+                    div.style.cssText = "position:absolute; bottom:10px; right:10px; text-align:center;";
+                    div.innerHTML = `<img src="${monster.image}" style="width:60px;height:60px;border-radius:50%;border:2px solid #ff0000;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 60 60%22%3E%3Ccircle cx=%2230%22 cy=%2230%22 r=%2225%22 fill=%22%23333%22/%3E%3Ctext x=%2230%22 y=%2240%22 text-anchor=%22middle%22 fill=%22%23ff0000%22 font-size=%2230%22%3E${monster.emoji}%3C/text%3E%3C/svg%3E'"><div style="color:#ff0000;font-size:0.7em;">${monster.name}</div><div style="color:#ff6666;font-size:0.6em;">❤️ ${monster.hp}/${monster.maxHp}</div>`;
+                    container.appendChild(div);
+                } else {
+                    monsterDiv.innerHTML = `<img src="${monster.image}" style="width:60px;height:60px;border-radius:50%;border:2px solid #ff0000;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 60 60%22%3E%3Ccircle cx=%2230%22 cy=%2230%22 r=%2225%22 fill=%22%23333%22/%3E%3Ctext x=%2230%22 y=%2240%22 text-anchor=%22middle%22 fill=%22%23ff0000%22 font-size=%2230%22%3E${monster.emoji}%3C/text%3E%3C/svg%3E'"><div style="color:#ff0000;font-size:0.7em;">${monster.name}</div><div style="color:#ff6666;font-size:0.6em;">❤️ ${monster.hp}/${monster.maxHp}</div>`;
+                }
+            } else {
+                const monsterDiv = document.getElementById("summoned-monster-display");
+                if (monsterDiv) monsterDiv.remove();
+            }
+        }
+
+        function calculateHeroDamage(hero, isCritical) {
+            let baseDamage = hero.atk + currentBattleDamageBonus;
+            switch(hero.attackType) {
+                case 'sword': baseDamage = 30 + currentBattleDamageBonus; break;
+                case 'shuriken':
+                    baseDamage = 15 + currentBattleDamageBonus;
+                    ninjaWeakenNext = true;
+                    addLog("🥷 Ninja preparou enfraquecimento de 5%!", "gold");
+                    break;
+                case 'fireball':
+                    baseDamage = 10 + currentBattleDamageBonus;
+                    const healAmount = Math.floor(maxPartyHP * 0.05);
+                    partyHP = Math.min(maxPartyHP, partyHP + healAmount);
+                    updatePartyHP();
+                    addLog(`🧙 Mago curou ${healAmount} HP do grupo!`, "success");
+                    break;
+                case 'weaken':
+                    baseDamage = 15 + currentBattleDamageBonus;
+                    witchWeakenPermanent = 0.04;
+                    addLog("🧙‍♀️ Bruxa aplicou enfraquecimento permanente de 4%!", "gold");
+                    break;
+            }
+            if (isCritical) {
+                const criticalBonus = Math.floor(baseDamage * 0.08);
+                baseDamage += criticalBonus;
+                addLog(`✨ CRÍTICO! +${criticalBonus} de dano extra!`, "gold");
+            }
+            return Math.max(1, Math.floor(baseDamage));
+        }
+
+        function showHeroAttackEffect(hero) {
+            const container = document.getElementById("battle-enemy-container");
+            let effectText = "💥";
+            switch(hero.attackType) {
+                case 'sword': effectText = "🗡️"; break;
+                case 'shuriken': effectText = "⭐"; break;
+                case 'fireball': effectText = "🔥"; break;
+                case 'weaken': effectText = "🔮"; break;
+            }
+            const effect = document.createElement("div");
+            effect.className = "attack-effect"; effect.textContent = effectText;
+            effect.style.left = "50%"; effect.style.top = "30%";
+            container.appendChild(effect);
+            setTimeout(() => effect.remove(), 500);
+        }
+
+        function skipBattle() { 
+            if (battleActive && !gameCompleted && !defenseActive && !attackBarActive) { 
+                partyHP -= 20; updatePartyHP(); addLog("🏃 Fugiu! -20 HP", "info"); checkGameOver(); 
+            } 
+            endBattle(); 
+        }
+        
+        function endBattle() { 
+            battleActive = false; currentEnemy = null; currentCellData = null; 
+            document.getElementById("battle-area").classList.remove("active"); 
+            document.getElementById("summons-panel").innerHTML = ''; 
+            witchWeakenPermanent = 0; ninjaWeakenNext = false;
+            bossRevived = false;
+            summonMonsterActive = false;
+            const monsterDiv = document.getElementById("summoned-monster-display");
+            if (monsterDiv) monsterDiv.remove();
+        }
+
+        function addXP(amount) {
+            partyXP += amount;
+            document.getElementById("party-xp").textContent = partyXP;
+            while (partyXP >= 30) {
+                partyLevel++; partyXP -= 30;
+                document.getElementById("party-level").textContent = partyLevel;
+                document.getElementById("party-xp").textContent = partyXP;
+                maxPartyHP += 50; partyHP = maxPartyHP; updatePartyHP();
+                heroes.forEach(hero => { hero.atk += 5; if (hero.def) hero.def += 3; if (hero.mana) hero.mana += 10; });
+                updateHeroDisplay();
+                addLog("🎉 LEVEL UP! Nível " + partyLevel + "!", "gold");
+            }
+        }
+
+        function updateHeroDisplay() {
+            document.getElementById("hero1-atk").textContent = heroes[0].atk;
+            document.getElementById("hero1-def").textContent = heroes[0].def;
+            document.getElementById("hero2-atk").textContent = heroes[1].atk;
+            document.getElementById("hero3-atk").textContent = heroes[2].atk;
+            document.getElementById("hero3-mana").textContent = heroes[2].mana;
+            document.getElementById("hero4-atk").textContent = heroes[3].atk;
+            document.getElementById("hero4-mana").textContent = heroes[3].mana;
+        }
+
+        function updatePartyHP() { 
+            document.getElementById("party-hp").textContent = partyHP; 
+            if (partyHP <= 0) { 
+                addLog("💀 GAME OVER!", "error"); 
+                document.getElementById("submit-answer").disabled = true; 
+                document.getElementById("skip-battle").disabled = true; 
+                gameCompleted = true; 
+                showGameOver(); 
+            } 
+        }
+        function checkGameOver() { if (partyHP <= 0) updatePartyHP(); }
+        function showGameOver() { document.getElementById("game-over-overlay").classList.add("active"); }
+        
+        function restartGame() {
+            document.getElementById("game-over-overlay").classList.remove("active");
+            document.getElementById("victory-overlay").classList.remove("active");
+            document.getElementById("defense-arena-overlay").classList.remove("active");
+            document.getElementById("battle-area").classList.remove("active");
+            document.getElementById("attack-bar-overlay").classList.remove("active");
+            document.getElementById("bestiary-overlay").classList.remove("active");
+            currentPosition = 0;
+            partyHP = 500; maxPartyHP = 500; partyXP = 0; partyLevel = 1;
+            currentEnemy = null; currentCellData = null; amuletUsed = false;
+            battleActive = false; gameCompleted = false;
+            currentBattleDamageBonus = 0; leviathanProtection = false; behemothActive = false;
+            selectedHeroIndex = 0; summonsUsedCount = 0;
+            witchWeakenPermanent = 0; ninjaWeakenNext = false; attackBarActive = false;
+            bossRevived = false; summonMonsterActive = false;
+            bestiaryActive = false; pendingBattleCell = null;
+            defenseActive = false; defenseArrows = []; defenseBlockedCount = 0; defenseMissCount = 0;
+            summons.forEach(s => s.used = false);
+            heroes[0].atk = 30; heroes[0].def = 80;
+            heroes[1].atk = 15; heroes[1].spd = 100;
+            heroes[2].atk = 10; heroes[2].mana = 150;
+            heroes[3].atk = 15; heroes[3].mana = 100;
+            document.getElementById("party-hp").textContent = partyHP;
+            document.getElementById("party-xp").textContent = partyXP;
+            document.getElementById("party-level").textContent = partyLevel;
+            document.getElementById("submit-answer").disabled = false;
+            document.getElementById("skip-battle").disabled = false;
+            updateHeroDisplay();
+            initMap(); initBattleHeroes(); updateMapDisplay();
+            const log = document.getElementById("message-log");
+            log.innerHTML = '';
+            addLog("🔄 Jogo reiniciado! Boa sorte!", "info");
+            addLog("📍 Clique na Casa 1 do mapa para começar!", "info");
+            document.getElementById("start-screen").style.display = 'none';
+            document.getElementById("game-content").classList.add('active');
+        }
+
+        function addLog(message, className) { 
+            const log = document.getElementById("message-log"); 
+            if (!log) return;
+            const entry = document.createElement("p"); 
+            entry.className = `log-entry ${className}`; entry.innerHTML = message; 
+            log.insertBefore(entry, log.firstChild); 
+            while (log.children.length > 25) log.removeChild(log.lastChild); 
+        }
+
+        // DEFESA
+        function startDefenseMinigame(damageIfFail, pattern = "1:1") {
+            if (defenseActive) return;
+            defenseActive = true;
+            defenseBlockedCount = 0; defenseMissCount = 0;
+            defenseDamagePerArrow = Math.max(5, Math.floor(damageIfFail / 3));
+            defenseArrows = [];
+            document.querySelectorAll('.arrow').forEach(a => a.remove());
+            document.getElementById('defense-arena-overlay').classList.add('active');
+            updateDefenseHPBar();
+            document.getElementById('defense-message').textContent = 'Use ↑ ↓ ← → para girar o escudo!';
+            let arrowCount = 8;
+            if (pattern === "2:3") arrowCount = 10;
+            else if (pattern === "1:4") arrowCount = 9;
+            else if (pattern === "1:2") arrowCount = 7;
+            else if (pattern === "3:5") arrowCount = 11;
+            else if (pattern === "calc" || pattern === "regra3") arrowCount = 12;
+            for (let i = 0; i < arrowCount; i++) setTimeout(() => spawnDefenseArrow(), i * 400);
+            if (defenseIntervalId) clearInterval(defenseIntervalId);
+            defenseIntervalId = setInterval(updateDefenseArrows, 16);
+            document.addEventListener('keydown', handleDefenseKey);
+        }
+        function handleDefenseKey(e) {
+            if (!defenseActive) return;
+            const key = e.key;
+            if (key === 'ArrowUp') { defenseShieldAngle = 0; e.preventDefault(); }
+            else if (key === 'ArrowRight') { defenseShieldAngle = 1; e.preventDefault(); }
+            else if (key === 'ArrowDown') { defenseShieldAngle = 2; e.preventDefault(); }
+            else if (key === 'ArrowLeft') { defenseShieldAngle = 3; e.preventDefault(); }
+            else if (key === ' ') { if (defenseBlockedCount >= 3) { defenseBlockedCount = 0; activateSuperBlock(); e.preventDefault(); } }
+            updateShieldPosition();
+        }
+        function activateSuperBlock() { document.querySelectorAll('.arrow').forEach(a => a.remove()); defenseArrows = defenseArrows.filter(a => !a.element.isConnected); addLog("⚡ Super Bloqueio!", "gold"); }
+        function updateSuperBlockIndicator() { document.getElementById('super-block-indicator').textContent = `⚡ Super: ${defenseBlockedCount}/3`; }
+        function spawnDefenseArrow() {
+            if (!defenseActive) return;
+            const arena = document.getElementById('defense-arena');
+            const dir = Math.floor(Math.random() * 4);
+            const arrow = document.createElement('div');
+            arrow.className = `arrow ${['up','right','down','left'][dir]}`;
+            arrow.textContent = ['↑','→','↓','←'][dir];
+            const startPos = getStartPosition(dir);
+            arrow.style.left = startPos.x + 'px'; arrow.style.top = startPos.y + 'px';
+            arena.appendChild(arrow);
+            defenseArrows.push({ element: arrow, dir: dir, pos: startPos, speed: 2 + Math.random() * 2 });
+        }
+        function getStartPosition(dir) { const arena = document.getElementById('defense-arena'); const w = arena.clientWidth, h = arena.clientHeight; switch(dir) { case 0: return { x: w/2 - 20, y: h - 50 }; case 1: return { x: 20, y: h/2 - 20 }; case 2: return { x: w/2 - 20, y: 20 }; case 3: return { x: w - 50, y: h/2 - 20 }; } }
+        function updateDefenseArrows() {
+            if (!defenseActive) return;
+            const arena = document.getElementById('defense-arena');
+            const centerX = arena.clientWidth / 2, centerY = arena.clientHeight / 2;
+            defenseArrows.forEach((arrow, index) => {
+                const el = arrow.element;
+                const dx = centerX - arrow.pos.x, dy = centerY - arrow.pos.y, dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 15) {
+                    const shieldDirMap = { 0: 2, 1: 3, 2: 0, 3: 1 };
+                    if (shieldDirMap[arrow.dir] === defenseShieldAngle) {
+                        el.remove(); defenseBlockedCount++; updateSuperBlockIndicator();
+                        if (defenseBlockedCount >= 3) { defenseBlockedCount = 0; addXP(5); updateSuperBlockIndicator(); }
+                    } else {
+                        el.remove(); defenseMissCount++;
+                        const damage = defenseDamagePerArrow * (defenseMissCount >= 3 ? 2 : 1);
+                        partyHP -= damage; updatePartyHP(); updateDefenseHPBar();
+                        addLog(`💔 Atingido! -${damage} HP`, "error");
+                        if (partyHP <= 0) { endDefenseMinigame(); }
+                        if (defenseMissCount >= 3) { defenseMissCount = 0; }
+                    }
+                    defenseArrows.splice(index, 1);
+                    return;
+                }
+                const moveX = dx / dist * arrow.speed, moveY = dy / dist * arrow.speed;
+                arrow.pos.x += moveX; arrow.pos.y += moveY;
+                el.style.left = arrow.pos.x + 'px'; el.style.top = arrow.pos.y + 'px';
+            });
+            if (defenseArrows.length === 0 && defenseActive) setTimeout(() => endDefenseMinigame(), 300);
+            updateDefenseHPBar();
+        }
+        function updateDefenseHPBar() { const percent = (partyHP / maxPartyHP) * 100; document.getElementById('defense-hp-fill').style.width = percent + '%'; document.getElementById('defense-hp-text').textContent = `❤️ ${partyHP}/${maxPartyHP}`; }
+        function updateShieldPosition() { const shield = document.getElementById('defense-shield'); shield.className = 'defense-shield'; const dirClass = ['direction-up','direction-right','direction-down','direction-left'][defenseShieldAngle]; shield.classList.add(dirClass); }
+        function endDefenseMinigame() { if (!defenseActive) return; defenseActive = false; if (defenseIntervalId) clearInterval(defenseIntervalId); document.getElementById('defense-arena-overlay').classList.remove('active'); document.querySelectorAll('.arrow').forEach(a => a.remove()); defenseArrows = []; document.removeEventListener('keydown', handleDefenseKey); if (partyHP <= 0) checkGameOver(); else addLog("🛡️ Defesa concluída!", "info"); }
+
+        function triggerFinalVictory() {
+            if (gameCompleted) return;
+            gameCompleted = true; battleActive = false;
+            document.getElementById("battle-area").classList.remove("active");
+            document.getElementById("victory-overlay").classList.add("active");
+            document.getElementById("victory-screen-1").classList.add("active");
+            document.getElementById("victory-screen-2").classList.remove("active");
+            document.getElementById("victory-screen-3").classList.remove("active");
+            addLog("🏆 O REI DAS TREVAS FOI DESTRUÍDO! O reino está salvo!", "gold");
+            updateMapDisplay();
+        }
+        function showVictoryScreen2() { document.getElementById("victory-screen-1").classList.remove("active"); document.getElementById("victory-screen-2").classList.add("active"); }
+        function showCredits() { document.getElementById("victory-screen-2").classList.remove("active"); document.getElementById("victory-screen-3").classList.add("active"); }
+        window.closeVictoryCinematic = function() { document.getElementById("victory-overlay").classList.remove("active"); document.querySelectorAll('.victory-screen').forEach(s => s.classList.remove('active')); };
+
+        document.getElementById("answer-input").addEventListener("keypress", (e) => { if (e.key === "Enter") checkAnswer(); });
+    </script>
+</body>
+</html>
